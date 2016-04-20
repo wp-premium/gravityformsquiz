@@ -21,7 +21,7 @@
         passfailDisplayConfirmation = $("#passfaildisplayconfirmation").prop("checked");
         letterDisplayConfirmation = $("#letterdisplayconfirmation").prop("checked");
 
-        if(passfaildisplayconfirmation)
+        if(passfailDisplayConfirmation)
             $("#gquiz-grading-pass-fail-container .gquiz-quiz-confirmation").show();
         else
             $("#gquiz-grading-pass-fail-container .gquiz-quiz-confirmation").hide();
