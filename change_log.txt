@@ -1,4 +1,28 @@
 ---------------------------------------------------------------------
+Version 3.0
+    - Added GF_Field_Quiz.
+    - Fixed some untranslatable strings.
+    - Fixed the quiz results appearing in the print footer when the form doesn't use quiz fields.
+
+---------------------------------------------------------------------
+Version 2.4.5
+    - Fixed an issue with the JS for the display quiz confirmation setting on the quiz settings page.
+
+---------------------------------------------------------------------
+Version 2.4.4
+    - Fixed php notice on entries list page.
+
+---------------------------------------------------------------------
+Version 2.4.3
+    - Updated minimum Gravity Forms version to 1.9.10.
+    - Updated to use objection notation when interacting with field object.
+    - Fixed an issue with the select type field placeholder choice being duplicated on validation failure.
+
+---------------------------------------------------------------------
+Version 2.4.2
+    - Increased width of input boxes for weighted score values
+
+---------------------------------------------------------------------
 Version 2.4.1
     - Fixed an issue which caused quiz merge tags to be replaced during form render.
 
