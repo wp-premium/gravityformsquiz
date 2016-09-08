@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------
+Version 3.1
+    - Updated field general settings label classes for consistency with GF2.0+.
+    - Updated the instant feedback to add the gquiz-incorrect-choice class to the choice label.
+    - Updated GF_Quiz::get_form_meta() method to only fetch and cache the requested form (rather than all forms).
+    - Fixed some strings that were not translatable.
+    - Fixed an issue which could prevent the entry detail meta box being added with Gravity Forms 2.0 if an update was available or for locales other than English.
+
+---------------------------------------------------------------------
 Version 3.0
     - Added GF_Field_Quiz.
     - Fixed some untranslatable strings.
