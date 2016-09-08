@@ -191,8 +191,8 @@ class GFQuiz extends GFAddOn {
 		// display quiz results on entry detail & entry list
 		add_filter( 'gform_entries_field_value', array( $this, 'display_entries_field_value' ), 10, 4 );
 
-		if ( $this->is_gravityforms_supported( '2.0-beta' ) ) {
-			add_action( 'gform_entry_detail', array( $this, 'register_meta_box' ) );
+		if ( $this->is_gravityforms_supported( '2.0-beta-3' ) ) {
+			add_filter( 'gform_entry_detail_meta_boxes', array( $this, 'register_meta_box' ), 10, 3 );
 		} else {
 			add_action( 'gform_entry_detail_sidebar_middle', array( $this, 'entry_detail_sidebar_middle' ), 10, 2 );
 		}
@@ -911,10 +911,10 @@ class GFQuiz extends GFAddOn {
 				),
 			),
 			'hAxis'  => array(
-				'title' => 'Score',
+				'title' => esc_html__( 'Score', 'gravityformsquiz' ),
 			),
 			'vAxis'  => array(
-				'title' => 'Frequency',
+				'title' => esc_html__( 'Frequency', 'gravityformsquiz' ),
 			)
 		);
 
@@ -1679,20 +1679,24 @@ class GFQuiz extends GFAddOn {
 	/**
 	 * Include the results in the sidebar of the entry detail page.
 	 *
-	 * @param array $form The current form.
+	 * @param array $meta_boxes The properties for the meta boxes.
+	 * @param array $entry The entry currently being viewed/edited.
+	 * @param array $form The form object used to process the current entry.
+	 *
+	 * @return array
 	 */
-	public function register_meta_box( $form ) {
+	public function register_meta_box( $meta_boxes, $entry, $form ) {
 		$fields = GFAPI::get_fields_by_type( $form, array( 'quiz' ) );
 
 		if ( ! empty( $fields ) ) {
-			add_meta_box(
-				'gf_quiz',
-				esc_html__( 'Quiz Results', 'gravityformsquiz' ),
-				array( $this, 'add_quiz_meta_box' ),
-				'forms_page_gf_entries',
-				'side'
+			$meta_boxes['gf_quiz'] = array(
+				'title'    => esc_html__( 'Quiz Results', 'gravityformsquiz' ),
+				'callback' => array( $this, 'add_quiz_meta_box' ),
+				'context'  => 'side',
 			);
 		}
+
+		return $meta_boxes;
 	}
 
 	/**
@@ -1828,9 +1832,9 @@ class GFQuiz extends GFAddOn {
 				'default_value' => $this->get_form_setting( array(), 'grading' ),
 				'class'         => 'gquiz-grading',
 				'choices'       => array(
-					0 => array( 'value' => 'none', 'label' => 'None', 'tooltip' => '<h6>' . esc_html__( 'No Grading', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Grading will not be used for this form.', 'gravityformsquiz' ) ),
-					1 => array( 'value' => 'passfail', 'label' => 'Pass/Fail', 'tooltip' => '<h6>' . esc_html__( 'Enable Pass/Fail Grading', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Select this option to enable the pass/fail grading system for this form.', 'gravityformsquiz' ) ),
-					2 => array( 'value' => 'letter', 'label' => 'Letter', 'tooltip' => '<h6>' . esc_html__( 'Enable Letter Grading', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Select this option to enable the letter grading system for this form.', 'gravityformsquiz' ) )
+					0 => array( 'value' => 'none', 'label' => esc_html__( 'None', 'gravityformsquiz' ), 'tooltip' => '<h6>' . esc_html__( 'No Grading', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Grading will not be used for this form.', 'gravityformsquiz' ) ),
+					1 => array( 'value' => 'passfail', 'label' => esc_html__( 'Pass/Fail', 'gravityformsquiz' ), 'tooltip' => '<h6>' . esc_html__( 'Enable Pass/Fail Grading', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Select this option to enable the pass/fail grading system for this form.', 'gravityformsquiz' ) ),
+					2 => array( 'value' => 'letter', 'label' => esc_html__( 'Letter', 'gravityformsquiz' ), 'tooltip' => '<h6>' . esc_html__( 'Enable Letter Grading', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Select this option to enable the letter grading system for this form.', 'gravityformsquiz' ) )
 				)
 			);
 			$this->settings_radio( $grading_setting );
@@ -2080,7 +2084,7 @@ class GFQuiz extends GFAddOn {
 			?>
 
 			<li class="gquiz-setting-question field_setting">
-				<label for="gquiz-question">
+				<label for="gquiz-question" class="section_label">
 					<?php esc_html_e( 'Quiz Question', 'gravityformsquiz' ); ?>
 					<?php gform_tooltip( 'gquiz_question' ); ?>
 				</label>
@@ -2094,7 +2098,7 @@ class GFQuiz extends GFAddOn {
 			?>
 
 			<li class="gquiz-setting-field-type field_setting">
-				<label for="gquiz-field-type">
+				<label for="gquiz-field-type" class="section_label">
 					<?php esc_html_e( 'Quiz Field Type', 'gravityformsquiz' ); ?>
 					<?php gform_tooltip( 'gquiz_field_type' ); ?>
 				</label>
@@ -2112,16 +2116,18 @@ class GFQuiz extends GFAddOn {
 				<div style="float:right;">
 					<input id="gquiz-weighted-score-enabled" type="checkbox"
 					       onclick="SetFieldProperty('gquizWeightedScoreEnabled', this.checked); jQuery('#gquiz_gfield_settings_choices_container').toggleClass('gquiz-weighted-score');">
-					<label class="inline gfield_value_label" for="gquiz-weighted-score-enabled">weighted
-						score</label> <?php gform_tooltip( 'gquiz_weighted_score' ) ?>
+					<label class="inline gfield_value_label" for="gquiz-weighted-score-enabled"><?php esc_html_e( 'weighted
+						score', 'gravityformsquiz' ) ?></label> <?php gform_tooltip( 'gquiz_weighted_score' ) ?>
 				</div>
 				<div style="float:right;<?php echo $show_values_style; ?>">
 					<input type="checkbox" id="gquiz_field_choice_values_visible" onclick="gquizToggleValues();"/>
 					<label for="gquiz_field_choice_values_visible"
 					       class="inline gfield_value_label"><?php esc_html_e( 'show values', 'gravityformsquiz' ) ?></label>
 				</div>
-				<?php esc_html_e( 'Quiz Answers', 'gravityformsquiz' ); ?> <?php gform_tooltip( 'gquiz_field_choices' ) ?>
-				<br/>
+				<label for="gquiz-choice-text-0" class="section_label">
+					<?php esc_html_e( 'Quiz Answers', 'gravityformsquiz' ); ?>
+					<?php gform_tooltip( 'gquiz_field_choices' ) ?>
+				</label>
 
 				<div id="gquiz_gfield_settings_choices_container">
 					<ul id="gquiz-field-choices"></ul>
@@ -2487,25 +2493,13 @@ class GFQuiz extends GFAddOn {
 	 * @return mixed
 	 */
 	public function get_form_meta( $form_id ) {
-		$form_metas = $this->_form_meta_by_id;
 
-		if ( empty( $form_metas ) ) {
-			$form_ids = array();
-			$forms    = RGFormsModel::get_forms();
-			foreach ( $forms as $form ) {
-				$form_ids[] = $form->id;
-			}
-
-			$form_metas = GFFormsModel::get_form_meta_by_id( $form_ids );
-
-			$this->_form_meta_by_id = $form_metas;
-		}
-		foreach ( $form_metas as $form_meta ) {
-			if ( $form_meta['id'] == $form_id ) {
-				return $form_meta;
-			}
+		if ( ! isset( $this->_form_meta_by_id[ $form_id ] ) ) {
+			$forms = GFFormsModel::get_form_meta_by_id( $form_id );
+			$this->_form_meta_by_id[ $form_id ] = array_shift( $forms );
 		}
 
+		return $this->_form_meta_by_id[ $form_id ];
 	}
 
 
