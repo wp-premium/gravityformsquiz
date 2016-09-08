@@ -1,40 +1,42 @@
 function gquizShowAnswer(radioInput) {
     var id, gform, formId, fieldElem, label, allRadios, fieldId, correctValue, isCorrect, correctInput, correctInputId,
         correctLabel, indicatorUrl, answerIndicator, fieldContainer, answerExplanation;
-    id = jQuery(radioInput).attr("id");
+    id = jQuery(radioInput).attr('id');
     gform = gquizGetCurrentForm(radioInput);
     formId = gquizGetFormId(gform);
     label = jQuery(gform).find("label[for='" + id + "']");
     allRadios = "input[name='" + radioInput.name + "']";
     jQuery(gform).find(allRadios).attr('disabled', 'disabled');
     jQuery(radioInput).removeAttr('disabled'); // lets us send the value
-    fieldId = radioInput.name.replace("input_", "");
-    fieldElem = jQuery("#field_" + formId + "_" + fieldId);
+    fieldId = radioInput.name.replace('input_', '');
+    fieldElem = jQuery('#field_' + formId + '_' + fieldId);
     correctValue = gquizAnswers[fieldId].correctValue;
     correctValue = base64_decode(correctValue);
     isCorrect = !!(correctValue == radioInput.value);
+    if (!isCorrect) {
+        label.addClass('gquiz-incorrect-choice');
+    }
     correctInput = jQuery(fieldElem).find("input[value='" + correctValue + "']");
     correctInputId = jQuery(correctInput).attr("id");
     correctLabel = jQuery(fieldElem).find("label[for='" + correctInputId + "']");
-    correctLabel.addClass("gquiz-correct-choice");
+    correctLabel.addClass('gquiz-correct-choice');
     indicatorUrl = isCorrect ? gquizVars.correctIndicator : gquizVars.incorrectIndicator;
     answerIndicator = "<img class='gquiz-indicator' src='" + indicatorUrl + "' />";
     jQuery(label).append(answerIndicator);
-    fieldContainer = jQuery(radioInput).closest(".ginput_container");
+    fieldContainer = jQuery(radioInput).closest('.ginput_container');
     answerExplanation = gquizAnswers[fieldId].explanation;
     if (answerExplanation) {
         answerExplanation = '<div class="gquiz-answer-explanation">' + utf8_decode(base64_decode(answerExplanation)) + '</div>';
         fieldContainer.append(answerExplanation);
     }
-
 }
 
 function gquizGetCurrentForm(element) {
-    var form = jQuery(element).closest("form");
+    var form = jQuery(element).closest('form');
     return form;
 }
 function gquizGetFormId(form) {
-    var formId = jQuery(form).attr("id").replace("gform_", "");
+    var formId = jQuery(form).attr("id").replace('gform_', '');
     return formId;
 }
 
