@@ -1,6 +1,6 @@
 function gquizShowAnswer(radioInput) {
     var id, gform, formId, fieldElem, label, allRadios, fieldId, correctValue, isCorrect, correctInput, correctInputId,
-        correctLabel, indicatorUrl, answerIndicator, fieldContainer, answerExplanation;
+        correctLabel, indicatorUrl, answerIndicator, fieldContainer, answerExplanation, indicatorAlt;
     id = jQuery(radioInput).attr('id');
     gform = gquizGetCurrentForm(radioInput);
     formId = gquizGetFormId(gform);
@@ -10,8 +10,9 @@ function gquizShowAnswer(radioInput) {
     jQuery(radioInput).removeAttr('disabled'); // lets us send the value
     fieldId = radioInput.name.replace('input_', '');
     fieldElem = jQuery('#field_' + formId + '_' + fieldId);
+	fieldElem.addClass( 'gquiz-instant-feedback-validated' );
     correctValue = gquizAnswers[fieldId].correctValue;
-    correctValue = base64_decode(correctValue);
+    correctValue = utf8_decode(base64_decode(correctValue));
     isCorrect = !!(correctValue == radioInput.value);
     if (!isCorrect) {
         label.addClass('gquiz-incorrect-choice');
@@ -21,7 +22,8 @@ function gquizShowAnswer(radioInput) {
     correctLabel = jQuery(fieldElem).find("label[for='" + correctInputId + "']");
     correctLabel.addClass('gquiz-correct-choice');
     indicatorUrl = isCorrect ? gquizVars.correctIndicator : gquizVars.incorrectIndicator;
-    answerIndicator = "<img class='gquiz-indicator' src='" + indicatorUrl + "' />";
+	indicatorAlt = isCorrect ? gquizVars.strings.correctResponse : gquizVars.strings.incorrectResponse;
+    answerIndicator = "<img class='gquiz-indicator' src='" + indicatorUrl + "' alt='" + indicatorAlt + "' />";
     jQuery(label).append(answerIndicator);
     fieldContainer = jQuery(radioInput).closest('.ginput_container');
     answerExplanation = gquizAnswers[fieldId].explanation;
@@ -41,12 +43,52 @@ function gquizGetFormId(form) {
 }
 
 function gquizSetUpInstantFeedback(){
-    jQuery(".gquiz-field.gquiz-instant-feedback input[type='radio']:checked").each(function () {
-        gquizShowAnswer(this);
-    });
-    jQuery(".gquiz-field.gquiz-instant-feedback input[type='radio']").change(function (e) {
-        gquizShowAnswer(this);
-    });
+
+	var $fields = jQuery(".gquiz-field.gquiz-instant-feedback");
+
+	$fields.find( "input[type='radio']:checked" ).each( function() {
+        gquizShowAnswer( this );
+    } );
+
+	var clickedByMouse = false,
+		lastInput      = null;
+
+	$fields.find( 'label, input[type="radio"]' ).mouseup( function( e ) {
+		clickedByMouse = true;
+	} );
+
+	$fields.find( 'input[type="radio"]' ).blur( function() {
+		setTimeout( function() {
+
+			if( jQuery( this ).parents( '.gfield' ).hasClass( 'gquiz-instant-feedback-validated' ) ) {
+				return;
+			}
+
+			var previousGroup = jQuery( this ).attr( 'name' ),
+				currentGroup  = jQuery( document.activeElement ).attr( 'name' ),
+				$inputs       = jQuery( 'input[name="' + previousGroup + '"]' );
+
+			if( currentGroup != previousGroup ) {
+				$inputs.filter( ':checked' ).each( function() {
+					gquizShowAnswer( this );
+				} );
+			}
+
+		}.bind( this ), 100 );
+
+	} ).click( function() {
+
+		if( jQuery( this ).parents( '.gfield' ).hasClass( 'gquiz-instant-feedback-validated' ) ) {
+			return;
+		}
+
+		if( clickedByMouse ) {
+			gquizShowAnswer( this );
+		}
+
+		clickedByMouse = false;
+
+	} );
 }
 
 jQuery(document).ready(function () {

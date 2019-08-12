@@ -1,0 +1,9 @@
+{
+    "name": "wp-premium/gravityformsquiz",
+    "type": "wordpress-plugin",
+    "autoload": {
+        "classmap": [
+            "."
+        ]
+    }
+}
