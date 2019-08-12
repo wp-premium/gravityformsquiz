@@ -21,7 +21,7 @@ function gquiz_answer_indicator ($indicator_markup, $form, $field, $choice, $lea
     if ( $is_response_correct )
         $indicator_markup = ' (you got this one right!)';
     elseif ( $is_response_wrong ) {
-	    if  ( $field['inputType'] == 'checkbox' && rgar( $choice, 'gquizIsCorrect' ) )
+	    if  ( $field->inputType == 'checkbox' && rgar( $choice, 'gquizIsCorrect' ) )
 	        $indicator_markup = ' (you missed this one!)';
 	    else
 	        $indicator_markup = ' (you got this one wrong!)';
@@ -41,6 +41,8 @@ function gquiz_show_values(){
 */
 
 //------------------------------------------
+defined( 'ABSPATH' ) || die();
+
 GFForms::include_addon_framework();
 
 class GFQuiz extends GFAddOn {
@@ -318,16 +320,16 @@ class GFQuiz extends GFAddOn {
 
 		//localize strings
 		$strings = array(
-			'dragToReOrder'          => esc_html__( 'Drag to re-order', 'gravityformsquiz' ),
-			'addAnotherGrade'        => esc_html__( 'add another grade', 'gravityformsquiz' ),
-			'removeThisGrade'        => esc_html__( 'remove this grade', 'gravityformsquiz' ),
-			'firstChoice'            => esc_html__( 'First Choice', 'gravityformsquiz' ),
-			'secondChoice'           => esc_html__( 'Second Choice', 'gravityformsquiz' ),
-			'thirdChoice'            => esc_html__( 'Third Choice', 'gravityformsquiz' ),
-			'toggleCorrectIncorrect' => esc_html__( 'Click to toggle as correct/incorrect', 'gravityformsquiz' ),
-			'defineAsCorrect'        => esc_html__( 'Click to define as correct', 'gravityformsquiz' ),
-			'markAnAnswerAsCorrect'  => esc_html__( 'Mark an answer as correct by using the checkmark icon to the right of the answer.', 'gravityformsquiz' ),
-			'defineAsIncorrect'      => esc_html__( 'Click to define as incorrect', 'gravityformsquiz' ),
+			'dragToReOrder'          => wp_strip_all_tags( __( 'Drag to re-order', 'gravityformsquiz' ) ),
+			'addAnotherGrade'        => wp_strip_all_tags( __( 'add another grade', 'gravityformsquiz' ) ),
+			'removeThisGrade'        => wp_strip_all_tags( __( 'remove this grade', 'gravityformsquiz' ) ),
+			'firstChoice'            => wp_strip_all_tags( __( 'First Choice', 'gravityformsquiz' ) ),
+			'secondChoice'           => wp_strip_all_tags( __( 'Second Choice', 'gravityformsquiz' ) ),
+			'thirdChoice'            => wp_strip_all_tags( __( 'Third Choice', 'gravityformsquiz' ) ),
+			'toggleCorrectIncorrect' => wp_strip_all_tags( __( 'Click to toggle as correct/incorrect', 'gravityformsquiz' ) ),
+			'defineAsCorrect'        => wp_strip_all_tags( __( 'Click to define as correct', 'gravityformsquiz' ) ),
+			'markAnAnswerAsCorrect'  => wp_strip_all_tags( __( 'Mark an answer as correct by using the checkmark icon to the right of the answer.', 'gravityformsquiz' ) ),
+			'defineAsIncorrect'      => wp_strip_all_tags( __( 'Click to define as incorrect', 'gravityformsquiz' ) ),
 		);
 		wp_localize_script( 'gquiz_form_editor_js', 'gquiz_strings', $strings );
 
@@ -350,49 +352,11 @@ class GFQuiz extends GFAddOn {
 
 		//localize strings
 		$strings = array(
-			'dragToReOrder'   => esc_html__( 'Drag to re-order', 'gravityformsquiz' ),
-			'addAnotherGrade' => esc_html__( 'add another grade', 'gravityformsquiz' ),
-			'removeThisGrade' => esc_html__( 'remove this grade', 'gravityformsquiz' ),
+			'dragToReOrder'   => wp_strip_all_tags( __( 'Drag to re-order', 'gravityformsquiz' ) ),
+			'addAnotherGrade' => wp_strip_all_tags( __( 'add another grade', 'gravityformsquiz' ) ),
+			'removeThisGrade' => wp_strip_all_tags( __( 'remove this grade', 'gravityformsquiz' ) ),
 		);
 		wp_localize_script( 'gquiz_form_settings_js', 'gquiz_strings', $strings );
-
-	}
-	
-	/**
-	 * Localize the strings used by the gquiz_results_js script.
-	 */
-	public function localize_results_scripts() {
-
-		$filter_fields    = rgget( 'f' );
-		$filter_types     = rgget( 't' );
-		$filter_operators = rgget( 'o' );
-		$filter_values    = rgget( 'v' );
-
-		// Get current page protocol
-		$protocol = isset( $_SERVER['HTTPS'] ) ? 'https://' : 'http://';
-		// Output admin-ajax.php URL with same protocol as current page
-
-		$vars = array(
-			'ajaxurl'         => admin_url( 'admin-ajax.php', $protocol ),
-			'imagesUrl'       => $this->get_base_url() . '/images',
-			'filterFields'    => $filter_fields,
-			'filterTypes'     => $filter_types,
-			'filterOperators' => $filter_operators,
-			'filterValues'    => $filter_values,
-		);
-
-
-		wp_localize_script( 'gquiz_results_js', 'gresultsVars', $vars );
-
-		$strings = array(
-			'noFilters'         => esc_html__( 'No filters', 'gravityformsquiz' ),
-			'addFieldFilter'    => esc_html__( 'Add a field filter', 'gravityformsquiz' ),
-			'removeFieldFilter' => esc_html__( 'Remove a field filter', 'gravityformsquiz' ),
-			'ajaxError'         => esc_html__( 'Error retrieving results. Please contact support.', 'gravityformsquiz' )
-		);
-
-
-		wp_localize_script( 'gquiz_results_js', 'gresultsStrings', $strings );
 
 	}
 
@@ -414,6 +378,10 @@ class GFQuiz extends GFAddOn {
 			$params = array(
 				'correctIndicator'   => $this->_correct_indicator_url,
 				'incorrectIndicator' => $this->_incorrect_indicator_url,
+				'strings' => array(
+					'correctResponse' =>   __( 'Correct response', 'gravityformsquiz' ),
+					'incorrectResponse' => __( 'Incorrect response', 'gravityformsquiz' ),
+				)
 			);
 			wp_localize_script( 'gquiz_js', 'gquizVars', $params );
 
@@ -434,7 +402,7 @@ class GFQuiz extends GFAddOn {
 
 	}
 
-	
+
 	// # RESULTS --------------------------------------------------------------------------------------------------------
 
 	/**
@@ -503,7 +471,7 @@ class GFQuiz extends GFAddOn {
 
 	/**
 	 * Update the results data for this form.
-	 * 
+	 *
 	 * @param array $data The current results data.
 	 * @param array $form The current form.
 	 * @param GF_Field[] $fields The Quiz fields for this form.
@@ -583,7 +551,7 @@ class GFQuiz extends GFAddOn {
 
 	/**
 	 * Completely override the default results markup.
-	 * 
+	 *
 	 * @param string $html The current results markup.
 	 * @param array $data The results data for this form.
 	 * @param array $form The current form.
@@ -650,9 +618,9 @@ class GFQuiz extends GFAddOn {
 
 	/**
 	 * Get the score markup for a single field.
-	 * 
+	 *
 	 * @param GF_Field $field The current quiz field.
-	 * @param int $total_correct The max total for this field. 
+	 * @param int $total_correct The max total for this field.
 	 * @param int $entry_count The number of entries for this form.
 	 *
 	 * @return string
@@ -739,8 +707,15 @@ class GFQuiz extends GFAddOn {
 		);
 
 		foreach ( $choices as $choice ) {
-			$text = htmlspecialchars( $choice['text'], ENT_QUOTES );
-			$val  = $field_data[ $field->id ][ $choice['value'] ];
+			/*
+			Encoded double quotes get converted back to quotes when jQuery grabs the value from the data attribute
+			causing the value to be left as an unencoded string.
+			The ENT_QUOTES & ~ENT_COMPAT flags ensure that special characters including single quote are encoded
+			but not double quotes.
+			*/
+			$text = htmlspecialchars( $choice['text'], ENT_QUOTES & ~ENT_COMPAT );
+
+			$val = $field_data[ $field->id ][ $choice['value'] ];
 			if ( rgar( $choice, 'gquizIsCorrect' ) ) {
 				$data_table[] = array( $text, 0, $val );
 			} else {
@@ -945,6 +920,10 @@ class GFQuiz extends GFAddOn {
 	 * @return array
 	 */
 	public function add_merge_tags( $form ) {
+		if ( ! $this->is_form_settings() ) {
+			return $form;
+		}
+
 		$quiz_fields = GFAPI::get_fields_by_type( $form, array( 'quiz' ) );
 
 		if ( empty( $quiz_fields ) ) {
@@ -1670,7 +1649,7 @@ class GFQuiz extends GFAddOn {
 	 */
 	public function print_entry_footer( $form, $entry ) {
 		$fields = GFAPI::get_fields_by_type( $form, array( 'quiz' ) );
-		
+
 		if ( ! empty ( $fields ) ) {
 			echo '<h3>' . esc_html__( 'Quiz Results', 'gravityformsquiz' ) . '</h3>' . $this->get_results_panel_markup( $form, $entry );
 		}
@@ -1748,7 +1727,7 @@ class GFQuiz extends GFAddOn {
 		$form        = $this->get_form_meta( $form_id );
 		$quiz_fields = GFAPI::get_fields_by_type( $form, array( 'quiz' ) );
 		if ( false === empty( $quiz_fields ) ) {
-			$tabs[] = array( 'name' => 'gravityformsquiz', 'label' => esc_html__( 'Quiz', 'gravityformsquiz' ) );
+			$tabs[] = array( 'name' => 'gravityformsquiz', 'label' => esc_html__( 'Quiz', 'gravityformsquiz' ), 'capabilities' => array( $this->_capabilities_form_settings ) );
 		}
 
 		return $tabs;
@@ -2059,7 +2038,7 @@ class GFQuiz extends GFAddOn {
 		$tooltips['gquiz_question']                  = '<h6>' . esc_html__( 'Quiz Question', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Enter the question you would like to ask the user. The user can then answer the question by selecting from the available choices.', 'gravityformsquiz' );
 		$tooltips['gquiz_field_type']                = '<h6>' . esc_html__( 'Quiz Type', 'gravityformsquiz' ) . '</h6>' . esc_html__( "Select the field type you'd like to use for the quiz. Choose radio buttons or drop down if question only has one correct answer. Choose checkboxes if your question requires more than one correct choice.", 'gravityformsquiz' );
 		$tooltips['gquiz_randomize_quiz_choices']    = '<h6>' . esc_html__( 'Randomize Quiz Answers', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Check the box to randomize the order in which the answers are displayed to the user. This setting affects only the quiz front-end. It will not affect the order of the results.', 'gravityformsquiz' );
-		$tooltips['gquiz_enable_answer_explanation'] = '<h6>' . esc_html__( 'Enable Answer Explanation', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Activate this option to display an explanation of the answer along with the quiz results.', 'gravityformsquiz' );
+		$tooltips['gquiz_enable_answer_explanation'] = '<h6>' . esc_html__( 'Enable Answer Explanation', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'When displaying quiz results on your form\'s confirmations or notifications via merge tags (i.e. {quiz:id=1} or {all_quiz_results}), this option enables you to provide an explanation of the answer. Activate this option to enter an explanation.', 'gravityformsquiz' );
 		$tooltips['gquiz_answer_explanation']        = '<h6>' . esc_html__( 'Quiz Answer Explanation', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Enter the explanation for the correct answer and/or incorrect answers. This text will appear below the results for this field.', 'gravityformsquiz' );
 		$tooltips['gquiz_field_choices']             = '<h6>' . esc_html__( 'Quiz Answers', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Enter the answers for the quiz question. You can mark each choice as correct by using the radio/checkbox fields on the right.', 'gravityformsquiz' );
 		$tooltips['gquiz_weighted_score']            = '<h6>' . esc_html__( 'Weighted Score', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Weighted scores allow complex scoring systems in which each choice is awarded a different score. Weighted scores are awarded regardless of whether the response is correct or incorrect so be sure to allocate higher scores to correct answers. If this setting is disabled then the response will be awarded a score of 1 if correct and 0 if incorrect.', 'gravityformsquiz' );
@@ -2116,8 +2095,7 @@ class GFQuiz extends GFAddOn {
 				<div style="float:right;">
 					<input id="gquiz-weighted-score-enabled" type="checkbox"
 					       onclick="SetFieldProperty('gquizWeightedScoreEnabled', this.checked); jQuery('#gquiz_gfield_settings_choices_container').toggleClass('gquiz-weighted-score');">
-					<label class="inline gfield_value_label" for="gquiz-weighted-score-enabled"><?php esc_html_e( 'weighted
-						score', 'gravityformsquiz' ) ?></label> <?php gform_tooltip( 'gquiz_weighted_score' ) ?>
+					<label class="inline gfield_value_label" for="gquiz-weighted-score-enabled"><?php esc_html_e( 'weighted	score', 'gravityformsquiz' ) ?></label> <?php gform_tooltip( 'gquiz_weighted_score' ) ?>
 				</div>
 				<div style="float:right;<?php echo $show_values_style; ?>">
 					<input type="checkbox" id="gquiz_field_choice_values_visible" onclick="gquizToggleValues();"/>
@@ -2182,7 +2160,7 @@ class GFQuiz extends GFAddOn {
 	// # HELPERS -------------------------------------------------------------------------------------------------------
 
 	/**
-	 * Retreive a specific form setting.
+	 * Retrieve a specific form setting.
 	 *
 	 * @param array $form The current form object.
 	 * @param string $setting_name The property to be retrieved.
@@ -2270,7 +2248,7 @@ class GFQuiz extends GFAddOn {
 		$total_score = 0;
 
 		$output['fields']  = array();
-		$output['summary'] = '<div class="gquiz-container">';
+		$output['summary'] = '<div class="gquiz-container">' . PHP_EOL;
 		$fields            = GFAPI::get_fields_by_type( $form, array( 'quiz' ) );
 		$pass_percent      = $this->get_form_setting( $form, 'passPercent' );
 		$grades            = $this->get_form_setting( $form, 'grades' );
@@ -2282,15 +2260,15 @@ class GFQuiz extends GFAddOn {
 
 			$field_score = 0;
 
-			$field_markup = '<div class="gquiz-field">';
+			$field_markup = '<div class="gquiz-field">' . PHP_EOL;
 			if ( $show_question ) {
 				$field_markup .= '    <div class="gquiz-field-label">';
 				$field_markup .= GFCommon::get_label( $field );
-				$field_markup .= '    </div>';
+				$field_markup .= '    </div>' . PHP_EOL;
 			}
 
 			$field_markup .= '    <div class="gquiz-field-choice">';
-			$field_markup .= '    <ul>';
+			$field_markup .= '    <ul>' . PHP_EOL;
 
 			// for checkbox inputs with multiple correct choices
 			$completely_correct = true;
@@ -2354,27 +2332,27 @@ class GFQuiz extends GFAddOn {
 				$indicator_markup = apply_filters( 'gquiz_answer_indicator', $indicator_markup, $form, $field, $choice, $lead, $is_response_correct, $is_response_wrong );
 
 				$choice_class_markup = empty( $choice_class ) ? '' : 'class="' . $choice_class . '"';
-				$field_markup .= "<li {$choice_class_markup}>";
 
-				$field_markup .= $choice['text'] . $indicator_markup;
-				$field_markup .= '</li>';
+				$field_markup .= "<li {$choice_class_markup}>" . PHP_EOL;
+				$field_markup .= $choice['text'] . PHP_EOL;
+				$field_markup .= $indicator_markup . '</li>' . PHP_EOL;
 
 			} // end foreach choice
 
 			$field_markup .= '    </ul>';
-			$field_markup .= '    </div>';
+			$field_markup .= '    </div>' . PHP_EOL;
 
 			if ( $field->gquizShowAnswerExplanation ) {
-				$field_markup .= '<div class="gquiz-answer-explanation">';
-				$field_markup .= $field->gquizAnswerExplanation;
-				$field_markup .= '</div>';
+				$field_markup .= '<div class="gquiz-answer-explanation">' . PHP_EOL;
+				$field_markup .= $field->gquizAnswerExplanation . PHP_EOL;
+				$field_markup .= '</div><br>' . PHP_EOL;
 			}
 
 			$field_markup .= '</div>';
 			if ( ! $weighted_score_enabled && $completely_correct ) {
 				$field_score += 1;
 			}
-			$output['summary'] .= $field_markup;
+			$output['summary'] .= $field_markup . PHP_EOL;
 			array_push(
 				$output['fields'], array(
 					'id'         => $field->id,
@@ -2540,7 +2518,7 @@ class GFQuiz extends GFAddOn {
 					<table id="gcontacts-entry-list" class="widefat">
 						<tr class="gcontacts-entries-header">
 							<td>
-								<?php _e( 'Entry Id', 'gravityformsquiz' ) ?>
+								<?php _e( 'Entry ID', 'gravityformsquiz' ) ?>
 							</td>
 							<td>
 								<?php _e( 'Date', 'gravityformsquiz' ) ?>
