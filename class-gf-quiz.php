@@ -46,6 +46,10 @@ defined( 'ABSPATH' ) || die();
 GFForms::include_addon_framework();
 
 class GFQuiz extends GFAddOn {
+	/**
+	 * Latest version of the Quiz UI. Older versions are considered legacy.
+	 */
+	const LATEST_UI_VERSION = '2.5-beta-1';
 
 	protected $_version = GF_QUIZ_VERSION;
 	protected $_min_gravityforms_version = '1.9.10';
@@ -115,16 +119,15 @@ class GFQuiz extends GFAddOn {
 	 * Handles hooks and loading of language files.
 	 */
 	public function init() {
-
 		/**
 		 * A filter to allow the modification of the indicator when a user gets an answer correct on a quiz (Eg adding a link to your own icon)
 		 */
-		$this->_correct_indicator_url = apply_filters( 'gquiz_correct_indicator', $this->get_base_url() . '/images/tick.png' );
+		$this->_correct_indicator_url = apply_filters( 'gquiz_correct_indicator', $this->get_base_url() . '/images/green-check-icon.svg' );
 
 		/**
 		 * A filter to allow the modification of the indicator when a user gets an answer wrong on a quiz (Eg adding a link to your own icon)
 		 */
-		$this->_incorrect_indicator_url = apply_filters( 'gquiz_incorrect_indicator', $this->get_base_url() . '/images/cross.png' );
+		$this->_incorrect_indicator_url = apply_filters( 'gquiz_incorrect_indicator', $this->get_base_url() . '/images/red-x-icon.svg' );
 
 		//------------------- both outside and inside admin context ------------------------
 
@@ -236,10 +239,12 @@ class GFQuiz extends GFAddOn {
 	 * @return array
 	 */
 	public function scripts() {
+		$min = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG || isset( $_GET['gform_debug'] ) ? '' : '.min';
+
 		$scripts = array(
 			array(
 				'handle'   => 'gquiz_form_editor_js',
-				'src'      => $this->get_base_url() . '/js/gquiz_form_editor.js',
+				'src'      => $this->get_enqueue_src( "gquiz_form_editor{$min}.js" ),
 				'version'  => $this->_version,
 				'deps'     => array( 'jquery' ),
 				'callback' => array( $this, 'localize_form_editor_scripts' ),
@@ -249,7 +254,7 @@ class GFQuiz extends GFAddOn {
 			),
 			array(
 				'handle'   => 'gquiz_form_settings_js',
-				'src'      => $this->get_base_url() . '/js/gquiz_form_settings.js',
+				'src'      => $this->get_enqueue_src( "gquiz_form_settings{$min}.js" ),
 				'version'  => $this->_version,
 				'deps'     => array( 'jquery', 'jquery-ui-sortable', 'gform_json' ),
 				'callback' => array( $this, 'localize_form_settings_scripts' ),
@@ -271,27 +276,31 @@ class GFQuiz extends GFAddOn {
 	 * @return array
 	 */
 	public function styles() {
+		$min = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG || isset( $_GET['gform_debug'] ) ? '' : '.min';
 
 		$styles = array(
 			array(
 				'handle'  => 'gquiz_form_editor_css',
-				'src'     => $this->get_base_url() . '/css/gquiz_form_editor.css',
+				'src'     => $this->get_enqueue_src( "gquiz_form_editor{$min}.css" ),
 				'version' => $this->_version,
 				'enqueue' => array(
 					array( 'admin_page' => array( 'form_editor' ) ),
-				)
+				),
 			),
 			array(
 				'handle'  => 'gquiz_form_settings_css',
-				'src'     => $this->get_base_url() . '/css/gquiz_form_settings.css',
+				'src'     => $this->get_enqueue_src( "gquiz_form_settings{$min}.css" ),
 				'version' => $this->_version,
 				'enqueue' => array(
-					array( 'admin_page' => array( 'form_settings' ), 'tab' => array( 'gravityformsquiz' ) ),
-				)
+					array(
+						'admin_page' => array( 'form_settings' ),
+						'tab'        => array( 'gravityformsquiz' ),
+					),
+				),
 			),
 			array(
 				'handle'  => 'gquiz_css',
-				'src'     => $this->get_base_url() . '/css/gquiz.css',
+				'src'     => $this->get_enqueue_src( "gquiz{$min}.css" ),
 				'version' => $this->_version,
 				'enqueue' => array(
 					array( 'field_types' => array( 'quiz' ) ),
@@ -304,6 +313,30 @@ class GFQuiz extends GFAddOn {
 	}
 
 	/**
+	 * Get the full source URL to an enqueueable asset.
+	 *
+	 * Returns the path to a legacy asset when applicable.
+	 *
+	 * @since 3.3
+	 *
+	 * @param string $filename
+	 *
+	 * @return string
+	 */
+	private function get_enqueue_src( $filename ) {
+		$extension = pathinfo( $filename, PATHINFO_EXTENSION );
+
+		if (
+			! $this->is_gravityforms_supported( self::LATEST_UI_VERSION ) &&
+			is_readable( $this->get_base_path() . "/legacy/{$extension}/{$filename}" )
+		) {
+			return $this->get_base_url() . "/legacy/{$extension}/{$filename}";
+		}
+
+		return $this->get_base_url() . "/{$extension}/{$filename}";
+	}
+
+	/**
 	 * Localize the strings used by the gquiz_form_editor_js script.
 	 */
 	public function localize_form_editor_scripts() {
@@ -313,10 +346,13 @@ class GFQuiz extends GFAddOn {
 		// Output admin-ajax.php URL with same protocol as current page
 		$params = array(
 			'ajaxurl'   => admin_url( 'admin-ajax.php', $protocol ),
-			'imagesUrl' => $this->get_base_url() . '/images'
+			'imagesUrl' => $this->get_images_url(),
 		);
 		wp_localize_script( 'gquiz_form_editor_js', 'gquizVars', $params );
 
+		$markAnswerAsCorrectString = $this->is_gravityforms_supported( self::LATEST_UI_VERSION )
+			? __( 'Mark an answer as correct by using the checkmark icon to the left of the answer.', 'gravityforms' )
+			: __( 'Mark an answer as correct by using the checkmark icon to the right of the answer.', 'gravityforms' );
 
 		//localize strings
 		$strings = array(
@@ -328,11 +364,24 @@ class GFQuiz extends GFAddOn {
 			'thirdChoice'            => wp_strip_all_tags( __( 'Third Choice', 'gravityformsquiz' ) ),
 			'toggleCorrectIncorrect' => wp_strip_all_tags( __( 'Click to toggle as correct/incorrect', 'gravityformsquiz' ) ),
 			'defineAsCorrect'        => wp_strip_all_tags( __( 'Click to define as correct', 'gravityformsquiz' ) ),
-			'markAnAnswerAsCorrect'  => wp_strip_all_tags( __( 'Mark an answer as correct by using the checkmark icon to the right of the answer.', 'gravityformsquiz' ) ),
+			'markAnAnswerAsCorrect'  => wp_strip_all_tags( $markAnswerAsCorrectString ),
 			'defineAsIncorrect'      => wp_strip_all_tags( __( 'Click to define as incorrect', 'gravityformsquiz' ) ),
 		);
 		wp_localize_script( 'gquiz_form_editor_js', 'gquiz_strings', $strings );
 
+	}
+
+	/**
+	 * Get the URL path to the images directory.
+	 *
+	 * @return string
+	 */
+	private function get_images_url() {
+		if ( ! $this->is_gravityforms_supported( self::LATEST_UI_VERSION ) ) {
+			return $this->get_base_url() . '/legacy/images';
+		}
+
+		return $this->get_base_url() . '/images';
 	}
 
 	/**
@@ -562,53 +611,96 @@ class GFQuiz extends GFAddOn {
 	public function results_markup( $html, $data, $form, $fields ) {
 
 		$max_score       = $this->get_max_score( $form );
-		$entry_count     = $data['entry_count'];
-		$sum             = $data['sum'];
-		$pass_rate       = $data['pass_rate'];
+		$entry_count     = rgar( $data, 'entry_count', 0 );
+		$sum             = rgar( $data, 'sum', 0 );
+		$pass_rate       = rgar( $data, 'pass_rate', 0 ) . '%';
 		$average_score   = $entry_count > 0 ? $sum / $entry_count : 0;
 		$average_score   = round( $average_score, 2 );
 		$average_percent = $entry_count > 0 ? ( $sum / ( $max_score * $entry_count ) ) * 100 : 0;
-		$average_percent = round( $average_percent );
-		$field_data      = $data['field_data'];
+		$average_percent = round( $average_percent ) . '%';
+		$field_data      = rgar( $data, 'field_data', array() );
+		$grading = $this->get_form_setting( $form, 'grading' );
 
-		$html .= "<table width='100%' id='gquiz-results-summary'>
+		if ( $this->is_gravityforms_supported( '2.5-dev-1' ) ) {
+			$numbers = compact( 'entry_count', 'average_score', 'average_percent', 'pass_rate' );
+
+			$boxes = array(
+				'entry_count'     => array(
+					'label' => esc_html__( 'Total Entries', 'gravityformsquiz' ),
+					'icon'  => '<svg width="16" height="20" viewBox="0 0 16 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 3H3C2.46957 3 1.96086 3.21071 1.58579 3.58579C1.21071 3.96086 1 4.46957 1 5V17C1 17.5304 1.21071 18.0391 1.58579 18.4142C1.96086 18.7893 2.46957 19 3 19H13C13.5304 19 14.0391 18.7893 14.4142 18.4142C14.7893 18.0391 15 17.5304 15 17V5C15 4.46957 14.7893 3.96086 14.4142 3.58579C14.0391 3.21071 13.5304 3 13 3H11M5 3C5 3.53043 5.21071 4.03914 5.58579 4.41421C5.96086 4.78929 6.46957 5 7 5H9C9.53043 5 10.0391 4.78929 10.4142 4.41421C10.7893 4.03914 11 3.53043 11 3M5 3C5 2.46957 5.21071 1.96086 5.58579 1.58579C5.96086 1.21071 6.46957 1 7 1H9C9.53043 1 10.0391 1.21071 10.4142 1.58579C10.7893 1.96086 11 2.46957 11 3M8 10H11M8 14H11M5 10H5.01M5 14H5.01" stroke="#F15A2B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+				),
+				'average_score' => array(
+					'label' => esc_html__( 'Average Score', 'gravityformsquiz' ),
+					'icon' => '<svg width="20" height="12" viewBox="0 0 20 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11 1H19M19 1V9M19 1L11 9L7 5L1 11" stroke="#F15A2B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+				),
+				'average_percent' => array(
+					'label' => esc_html__( 'Average Percentage', 'gravityformsquiz' ),
+					'icon'  => '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 19H13M1 4L4 5L1 4ZM4 5L1 14C1.8657 14.649 2.91852 14.9999 4.0005 14.9999C5.08248 14.9999 6.1353 14.649 7.001 14L4 5ZM4 5L7 14L4 5ZM4 5L10 3L4 5ZM16 5L19 4L16 5ZM16 5L13 14C13.8657 14.649 14.9185 14.9999 16.0005 14.9999C17.0825 14.9999 18.1353 14.649 19.001 14L16 5ZM16 5L19 14L16 5ZM16 5L10 3L16 5ZM10 1V3V1ZM10 19V3V19ZM10 19H7H10Z" stroke="#F15A2B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+				),
+			);
+
+			if ( $grading == 'passfail' ) {
+				$boxes['pass_rate'] = array(
+					'label' => esc_html__( 'Pass Rate', 'gravityformsquiz' ),
+					'icon'  => '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 19H13M1 4L4 5L1 4ZM4 5L1 14C1.8657 14.649 2.91852 14.9999 4.0005 14.9999C5.08248 14.9999 6.1353 14.649 7.001 14L4 5ZM4 5L7 14L4 5ZM4 5L10 3L4 5ZM16 5L19 4L16 5ZM16 5L13 14C13.8657 14.649 14.9185 14.9999 16.0005 14.9999C17.0825 14.9999 18.1353 14.649 19.001 14L16 5ZM16 5L19 14L16 5ZM16 5L10 3L16 5ZM10 1V3V1ZM10 19V3V19ZM10 19H7H10Z" stroke="#F15A2B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+				);
+			}
+
+			$html = '<div class="gf-results '.( count( $boxes ) > 3 ? 'wide' : '' ).'">';
+			foreach ( $boxes as $key => $box_data ) {
+				$html .= '
+				<div class="gf-result-box">
+					<div class="gf-result-box__primary">
+						<div class="box-icon">' . $box_data['icon'] . '</div>
+						<div class="box-data">
+							<div class="box-label">' . $box_data['label'] . '</div>
+							<div class="box-number">' . $numbers[ $key ] . '</div>
+						</div>
+					</div>
+				</div>';
+			}
+			$html .= '</div>';
+		} else {
+			$html .= "<table width='100%' id='gquiz-results-summary'>
 						 <tr>
 							<td class='gquiz-results-summary-label'>" . esc_html__( 'Total Entries', 'gravityformsquiz' ) . "</td>
 							<td class='gquiz-results-summary-label'>" . esc_html__( 'Average Score', 'gravityformsquiz' ) . "</td>
 							<td class='gquiz-results-summary-label'>" . esc_html__( 'Average Percentage', 'gravityformsquiz' ) . '</td>';
-		$grading = $this->get_form_setting( $form, 'grading' );
-		if ( $grading == 'passfail' ) {
-			$html .= "  <td class='gquiz-results-summary-label'>" . esc_html__( 'Pass Rate', 'gravityformsquiz' ) . '</td>';
-		}
+			$grading = $this->get_form_setting( $form, 'grading' );
+			if ( $grading == 'passfail' ) {
+				$html .= "  <td class='gquiz-results-summary-label'>" . esc_html__( 'Pass Rate', 'gravityformsquiz' ) . '</td>';
+			}
 
-		$html .= "  </tr>
+			$html .= "  </tr>
 						<tr>
 							<td class='gquiz-results-summary-data'><div class='gquiz-results-summary-data-box postbox'>{$entry_count}</div></td>
 							<td class='gquiz-results-summary-data'><div class='gquiz-results-summary-data-box postbox'>{$average_score}</div></td>
-							<td class='gquiz-results-summary-data'><div class='gquiz-results-summary-data-box postbox'>{$average_percent}%</div></td>";
-		if ( $grading == 'passfail' ) {
-			$html .= "  <td class='gquiz-results-summary-data'><div class='gquiz-results-summary-data-box postbox'>{$pass_rate}%</div></td>";
+							<td class='gquiz-results-summary-data'><div class='gquiz-results-summary-data-box postbox'>{$average_percent}</div></td>";
+			if ( $grading == 'passfail' ) {
+				$html .= "  <td class='gquiz-results-summary-data'><div class='gquiz-results-summary-data-box postbox'>{$pass_rate}</div></td>";
+			}
+
+			$html .= '  </tr>
+			  </table>';
 		}
 
-		$html .= '  </tr>
-			  </table>';
-
 		if ( $entry_count > 0 ) {
-			$html .= "<div class='gresults-results-field-label'>" . esc_html__( 'Score Frequencies', 'gravityformsquiz' ) . "</div>";
-			$html .= $this->get_score_frequencies_chart( $data['score_frequencies'] );
-
+			$html .= "<div class='gresults-results-field gform-settings-panel' id='gresults-results-field-frequencies'>";
+			$html .= "<header class='gform-settings-panel__header'><legend class='gresults-results-field-label gform-settings-panel__title'>" . esc_html__( 'Score Frequencies', 'gravityformsquiz' ) . "</legend></header>";
+			$html .= '<div class="gform-settings-panel__content">' . $this->get_score_frequencies_chart( rgar( $data, 'score_frequencies', array() ) ) . '</div></div>';
 			if ( $grading == 'letter' ) {
-				$html .= "<div class='gresults-results-field-label'>" . esc_html__( 'Grade Frequencies', 'gravityformsquiz' ) . "</div>";
-				$html .= "<div class='gquiz-results-grades'>" . $this->get_grade_frequencies_chart( $data['grade_frequencies'] ) . '</div>';
+				$html .= "<div class='gresults-results-field gform-settings-panel' id='gresults-results-field-frequencies'>";
+				$html .= "<header class='gform-settings-panel__header'><legend class='gresults-results-field-label gform-settings-panel__title'>" . esc_html__( 'Grade Frequencies', 'gravityformsquiz' ) . '</legend></header>';
+				$html .= "<div class='gform-settings-panel__content gquiz-results-grades'>" . $this->get_grade_frequencies_chart( rgar( $data, 'grade_frequencies', array() ) ) . '</div></div>';
 			}
 
 			foreach ( $fields as $field ) {
 				$field_id = $field->id;
-				$html .= "<div class='gresults-results-field' id='gresults-results-field-{$field_id}'>";
-				$html .= "<div class='gresults-results-field-label'>" . esc_html( GFCommon::get_label( $field ) ) . '</div>';
-				$html .= '<div>' . $this->get_field_score_results( $field, $data['field_data'][ $field_id ]['totals']['correct'], $entry_count ) . '</div>';
+				$html .= "<div class='gresults-results-field gform-settings-panel' id='gresults-results-field-{$field_id}'>";
+				$html .= "<header class='gform-settings-panel__header'><legend class='gresults-results-field-label gform-settings-panel__title'>" . esc_html( GFCommon::get_label( $field ) ) . '</legend></header>';
+				$html .= '<div class="gform-settings-panel__content"><div>' . $this->get_field_score_results( $field, rgars( $field_data, $field_id . '/totals/correct', 0 ), $entry_count ) . '</div>';
 				$html .= '<div>' . $this->get_quiz_field_results( $field_data, $field ) . '</div>';
-				$html .= '</div>';
+				$html .= '</div></div>';
 			}
 		}
 
@@ -834,7 +926,7 @@ class GFQuiz extends GFAddOn {
 		$chart_options = array(
 			'series' => array(
 				'0' => array(
-					'color'           => '#66CCFF',
+					'color'           => '#F15A29',
 					'visibleInLegend' => 'false',
 				),
 			),
@@ -1091,19 +1183,24 @@ class GFQuiz extends GFAddOn {
 			return $form;
 		}
 
-		//maybe shuffle fields
+		// Maybe shuffle fields.
 		if ( rgars( $form, $this->_slug . '/shuffleFields' ) ) {
 			$random_ids    = $this->get_random_ids( $form );
 			$c             = 0;
 			$page_number   = 1;
 			$random_fields = array();
 			foreach ( $random_ids as $random_id ) {
-				$random_fields[] = $this->get_field_by_id( $form, $random_id );
+				if ( $random_id_field = $this->get_field_by_id( $form, $random_id ) ) {
+					$random_fields[] = $random_id_field;
+				}
 			}
+
 			foreach ( $form['fields'] as $key => $field ) {
 				if ( $field->type == 'quiz' ) {
-					$form['fields'][ $key ]             = $random_fields[ $c ++ ];
-					$form['fields'][ $key ]->pageNumber = $page_number;
+					if ( $random_field = rgar( $random_fields, $c ++ ) ) {
+						$form['fields'][ $key ]             = $random_field;
+						$form['fields'][ $key ]->pageNumber = $page_number;
+					}
 				} elseif ( $field->type == 'page' ) {
 					$page_number ++;
 				}
@@ -1129,7 +1226,7 @@ class GFQuiz extends GFAddOn {
 	 * @param array $form The current form.
 	 * @param int $field_id The ID of the field to be retrieved.
 	 *
-	 * @return GF_Field
+	 * @return GF_Field|null
 	 */
 	public function get_field_by_id( $form, $field_id ) {
 		foreach ( $form['fields'] as $field ) {
@@ -1137,29 +1234,39 @@ class GFQuiz extends GFAddOn {
 				return $field;
 			}
 		}
+
+		return null;
 	}
 
 	/**
 	 * Return a randomized array containing the quiz field IDs.
+	 *
+	 * @since 3.3 Updated to cache random IDs using the form ID as the key to the array.
 	 *
 	 * @param array $form The current form.
 	 *
 	 * @return array
 	 */
 	public function get_random_ids( $form ) {
-
 		$random_ids = array();
-		if ( false === empty( $this->_random_ids ) ) {
-			$random_ids = $this->_random_ids;
-		} elseif ( rgpost( 'gquiz_random_ids' ) ) {
-			$random_ids = explode( ',', rgpost( 'gquiz_random_ids' ) );
-		} else {
+		$form_id    = absint( $form['id'] );
+
+		if ( false === empty( $this->_random_ids[ $form_id ] ) ) {
+			$random_ids = $this->_random_ids[ $form_id ];
+		} elseif ( rgpost( 'is_submit_' . $form_id ) === '1' && rgpost( 'gquiz_random_ids' ) ) {
+			$random_ids = array_filter( array_map( 'absint', explode( ',', rgpost( 'gquiz_random_ids' ) ) ) );
+			if ( ! empty( $random_ids ) ) {
+				$this->_random_ids[ $form_id ] = $random_ids;
+			}
+		}
+
+		if ( empty( $random_ids ) ) {
 			$quiz_fields = GFAPI::get_fields_by_type( $form, array( 'quiz' ) );
 			foreach ( $quiz_fields as $quiz_field ) {
 				$random_ids[] = $quiz_field->id;
 			}
 			shuffle( $random_ids );
-			$this->_random_ids = $random_ids;
+			$this->_random_ids[ $form_id ] = $random_ids;
 		}
 
 		return $random_ids;
@@ -1176,7 +1283,7 @@ class GFQuiz extends GFAddOn {
 	public function maybe_store_selected_field_ids( $form_tag, $form ) {
 		if ( $this->get_form_setting( $form, 'shuffleFields' ) ) {
 			$value = implode( ',', $this->get_random_ids( $form ) );
-			$input = "<input type='hidden' value='$value' name='gquiz_random_ids'>";
+			$input = "<input type='hidden' value='" . esc_attr( $value ) . "' name='gquiz_random_ids'>";
 			$form_tag .= $input;
 		}
 
@@ -1204,6 +1311,9 @@ class GFQuiz extends GFAddOn {
 				//pass the HTML for the choices through DOMdocument to make sure we get the complete li node
 				$dom     = new DOMDocument();
 				$content = '<?xml version="1.0" encoding="UTF-8"?>' . $content;
+				// Clean content from new line characters.
+				$content = str_replace( '&#13;', ' ', $content );
+				$content = trim( preg_replace( '/\s\s+/', ' ', $content ) );
 				$loader  = libxml_disable_entity_loader( true );
 				$errors  = libxml_use_internal_errors( true );
 				$dom->loadHTML( $content );
@@ -1213,18 +1323,45 @@ class GFQuiz extends GFAddOn {
 
 				$content = $dom->saveXML( $dom->documentElement );
 
-				//pick out the elements: LI for radio & checkbox, OPTION for select
-				$element_name = $field->inputType == 'select' ? 'select' : 'ul';
-				$nodes        = $dom->getElementsByTagName( $element_name )->item( 0 )->childNodes;
+				$options_container_tag = 'div';
+				$legacy_markup         = method_exists( 'GFCommon', 'is_legacy_markup_enabled' ) ? GFCommon::is_legacy_markup_enabled( $form_id ) : true;
+				if ( $legacy_markup ) {
+					$options_container_tag = 'ul';
+				}
 
-				//cycle through the LI elements and swap them around randomly
-				$temp_str1 = 'gquiz_shuffle_placeholder1';
-				$temp_str2 = 'gquiz_shuffle_placeholder2';
-				for ( $i = $nodes->length - 1; $i >= 0; $i -- ) {
+				//pick out the elements: div or (legacy ul) for radio & checkbox, OPTION for select.
+				$element_name = $field->inputType == 'select' ? 'select' : $options_container_tag;
+
+				if ( $element_name == 'div' ) {
+					// Options container is within the field div container,
+					// so we need to go two levels deep if we are looking by 'div' tag.
+					$nodes = $dom->getElementsByTagName( $element_name )->item( 0 )->childNodes->item( 0 )->childNodes;
+				} else {
+					$nodes = $dom->getElementsByTagName( $element_name )->item( 0 )->childNodes;
+				}
+
+				// Cycle through the answers elements and swap them around randomly.
+				$temp_str1          = 'gquiz_shuffle_placeholder1';
+				$temp_str2          = 'gquiz_shuffle_placeholder2';
+				$no_shuffle_strings = array( 'gchoice_select_all', 'data-label-select', 'gf_placeholder' );
+
+				$i = is_object( $nodes ) && property_exists( $nodes, 'length' )
+					? $nodes->length - 1
+					: 0;
+
+				for ( $i; $i >= 0; $i -- ) {
 					$n = rand( 0, $i );
 					if ( $i <> $n ) {
-						$i_str   = $dom->saveXML( $nodes->item( $i ) );
-						$n_str   = $dom->saveXML( $nodes->item( $n ) );
+						$i_str = $dom->saveXML( $nodes->item( $i ) );
+						$n_str = $dom->saveXML( $nodes->item( $n ) );
+
+						// Make sure we are not shuffling "Select All" button/checkbox at the top.
+						// Make sure we are not shuffling "Select One" placeholder for dropdown.
+						if ( str_replace( $no_shuffle_strings, '', $i_str ) !== $i_str ||
+							str_replace( $no_shuffle_strings, '', $n_str ) !== $n_str ) {
+							continue;
+						}
+
 						$content = str_replace( $i_str, $temp_str1, $content );
 						$content = str_replace( $n_str, $temp_str2, $content );
 						$content = str_replace( $temp_str2, $i_str, $content );
@@ -1617,7 +1754,7 @@ class GFQuiz extends GFAddOn {
 	public function display_quiz_on_entry_detail( $value, $field, $entry, $form ) {
 		$new_value = '';
 
-		if ( $field->type == 'quiz' ) {
+		if ( $field instanceof GF_Field && $field->type == 'quiz' ) {
 			$new_value .= '<div class="gquiz_entry">';
 			$results      = $this->get_quiz_results( $form, $entry, false );
 			$field_markup = '';
@@ -1716,6 +1853,17 @@ class GFQuiz extends GFAddOn {
 	// # FORM SETTINGS --------------------------------------------------------------------------------------------------
 
 	/**
+	 * Return the plugin's icon for the plugin/form settings menu.
+	 *
+	 * @since 3.3
+	 *
+	 * @return string
+	 */
+	public function get_menu_icon() {
+		return $this->get_base_url() . '/images/quiz-icon.svg';
+	}
+
+	/**
 	 * Add the form settings tab.
 	 *
 	 * @param array $tabs The tabs to be displayed on the form settings page.
@@ -1727,7 +1875,12 @@ class GFQuiz extends GFAddOn {
 		$form        = $this->get_form_meta( $form_id );
 		$quiz_fields = GFAPI::get_fields_by_type( $form, array( 'quiz' ) );
 		if ( false === empty( $quiz_fields ) ) {
-			$tabs[] = array( 'name' => 'gravityformsquiz', 'label' => esc_html__( 'Quiz', 'gravityformsquiz' ), 'capabilities' => array( $this->_capabilities_form_settings ) );
+			$tabs[] = array(
+				'name'         => 'gravityformsquiz',
+				'label'        => esc_html__( 'Quiz', 'gravityformsquiz' ),
+				'capabilities' => array( $this->_capabilities_form_settings ),
+				'icon'         => $this->get_menu_icon(),
+			);
 		}
 
 		return $tabs;
@@ -1741,8 +1894,8 @@ class GFQuiz extends GFAddOn {
 	 * @return array
 	 */
 	public function form_settings_fields( $form ) {
-
-		// check for legacy form settings from a form exported from a previous version pre-framework
+		$tooltip_form_confirmation_autoformat = '<h6>' . esc_html__( 'Disable Auto-Formatting', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'When enabled, auto-formatting will insert paragraph breaks automatically. Disable auto-formatting when using HTML to create the confirmation content.', 'gravityformsquiz' );
+		// check for legacy form settings from a form exported from a previous version pre-framework.
 		$page = rgget( 'page' );
 		if ( 'gf_edit_forms' == $page && false === empty( $form_id ) ) {
 			$settings = $this->get_form_settings( $form );
@@ -1751,7 +1904,7 @@ class GFQuiz extends GFAddOn {
 			}
 		}
 
-		return array(
+		$sections = array(
 			array(
 				'title'  => esc_html__( 'Quiz Settings', 'gravityformsquiz' ),
 				'fields' => array(
@@ -1764,240 +1917,292 @@ class GFQuiz extends GFAddOn {
 								'label'         => esc_html__( 'Shuffle quiz fields', 'gravityformsquiz' ),
 								'name'          => 'shuffleFields',
 								'default_value' => $this->get_form_setting( array(), 'shuffleFields' ),
-								'tooltip'       => '<h6>' . esc_html__( 'Shuffle Fields', 'gravityformsquiz' ) . '</h6>' . esc_html__( "Display the quiz fields in a random order. This doesn't affect the position of the other fields on the form.", 'gravityformsquiz' )
+								'tooltip'       => '<h6>' . esc_html__( 'Shuffle Fields', 'gravityformsquiz' ) . '</h6>' . esc_html__( "Display the quiz fields in a random order. This doesn't affect the position of the other fields on the form.", 'gravityformsquiz' ),
 							),
 							1 => array(
 								'label'         => esc_html__( 'Instant feedback', 'gravityformsquiz' ),
 								'name'          => 'instantFeedback',
 								'default_value' => $this->get_form_setting( array(), 'instantFeedback' ),
-								'tooltip'       => '<h6>' . esc_html__( 'Instant Feedback', 'gravityformsquiz' ) . '</h6>' . esc_html__( "Display the correct answers plus explanations immediately after selecting an answer. Once an answer has been selected it can't be changed unless the form is reloaded. This setting only applies to radio button quiz fields and it is intended for training applications and trivial quizzes. It should not be considered a secure option for testing.", 'gravityformsquiz' )
-							)
-						)
+								'tooltip'       => '<h6>' . esc_html__( 'Instant Feedback', 'gravityformsquiz' ) . '</h6>' . esc_html__( "Display the correct answers plus explanations immediately after selecting an answer. Once an answer has been selected it can't be changed unless the form is reloaded. This setting only applies to radio button quiz fields and it is intended for training applications and trivial quizzes. It should not be considered a secure option for testing.", 'gravityformsquiz' ),
+							),
+						),
 					),
-					array(
-						'name'  => 'grading',
-						'label' => esc_html__( 'Grading', 'gravityformsquiz' ),
-						'type'  => 'grading',
-					),
-				)
+				),
 			),
-		);
-	}
-
-	/**
-	 * Render the markup for the grading type field.
-	 *
-	 * @param array $field The setting properties.
-	 */
-	public function settings_grading( $field ) {
-
-		$tooltip_form_confirmation_autoformat = '<h6>' . esc_html__( 'Disable Auto-Formatting', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'When enabled, auto-formatting will insert paragraph breaks automatically. Disable auto-formatting when using HTML to create the confirmation content.', 'gravityformsquiz' );
-
-		$this->settings_hidden(
 			array(
-				'name'          => 'grades',
-				'default_value' => $this->get_form_setting( array(), 'grades' )
-			)
-		);
-		?>
-
-		<div id="gquiz-grading-options">
-
-			<?php
-			$grading_setting = array(
-				'name'          => 'grading',
-				'type'          => 'radio',
-				'horizontal'    => true,
-				'default_value' => $this->get_form_setting( array(), 'grading' ),
-				'class'         => 'gquiz-grading',
-				'choices'       => array(
-					0 => array( 'value' => 'none', 'label' => esc_html__( 'None', 'gravityformsquiz' ), 'tooltip' => '<h6>' . esc_html__( 'No Grading', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Grading will not be used for this form.', 'gravityformsquiz' ) ),
-					1 => array( 'value' => 'passfail', 'label' => esc_html__( 'Pass/Fail', 'gravityformsquiz' ), 'tooltip' => '<h6>' . esc_html__( 'Enable Pass/Fail Grading', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Select this option to enable the pass/fail grading system for this form.', 'gravityformsquiz' ) ),
-					2 => array( 'value' => 'letter', 'label' => esc_html__( 'Letter', 'gravityformsquiz' ), 'tooltip' => '<h6>' . esc_html__( 'Enable Letter Grading', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Select this option to enable the letter grading system for this form.', 'gravityformsquiz' ) )
-				)
-			);
-			$this->settings_radio( $grading_setting );
-			?>
-			<div id="gquiz-grading-pass-fail-container" style="margin-top:10px;display:none;">
-				<div id="gquiz-form-setting-pass-grade">
-
-					<div id="gquiz-form-setting-pass-grade-value">
-						<label style="display:block;">
-							<?php esc_html_e( 'Pass Percentage', 'gravityformsquiz' ) ?><?php gform_tooltip( '<h6>' . esc_html__( 'Pass Percentage', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Define the minimum percentage required to pass the quiz.', 'gravityformsquiz' ) ) ?>
-						</label>
-						<?php
-
-						$this->settings_text(
-							array(
-								'name'          => 'passPercent',
-								'class'         => 'gquiz-grade-value',
-								'default_value' => $this->get_form_setting( array(), 'passPercent' )
-							)
-						);
-						?>
-						<span>%</span>
-					</div>
-				</div>
-
-				<?php
-				$this->settings_checkbox(
+				'title'  => esc_html__( 'Grading Settings', 'gravityformsquiz' ),
+				'id'     => 'grading_settings_section',
+				'fields' => array(
 					array(
-						'name'    => 'passfailDisplayConfirmation',
-						'type'    => 'checkbox',
-						'choices' => array(
+						'name'          => 'grading',
+						'type'          => 'radio',
+						'horizontal'    => true,
+						'default_value' => $this->get_form_setting( array(), 'grading' ),
+						'class'         => 'gquiz-grading',
+						'choices'       => array(
+							array(
+								'value'   => 'none',
+								'label'   => esc_html__( 'None', 'gravityformsquiz' ),
+								'tooltip' => '<h6>' . esc_html__( 'No Grading', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Grading will not be used for this form.', 'gravityformsquiz' ),
+							),
+							array(
+								'value'   => 'passfail',
+								'label'   => esc_html__( 'Pass/Fail', 'gravityformsquiz' ),
+								'tooltip' => '<h6>' . esc_html__( 'Enable Pass/Fail Grading', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Select this option to enable the pass/fail grading system for this form.', 'gravityformsquiz' ),
+							),
+							array(
+								'value'   => 'letter',
+								'label'   => esc_html__( 'Letter', 'gravityformsquiz' ),
+								'tooltip' => '<h6>' . esc_html__( 'Enable Letter Grading', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Select this option to enable the letter grading system for this form.', 'gravityformsquiz' ),
+							),
+						),
+					),
+				),
+			),
+			array(
+				'title'      => esc_html__( 'Pass/Fail Grading Options', 'gravityformsquiz' ),
+				'id'         => 'passfail_grading_options',
+				'dependency' => array(
+					'live'   => true,
+					'fields' => array(
+						array(
+							'field'  => 'grading',
+							'values' => array( 'passfail' ),
+						),
+					),
+				),
+				'fields'     => array(
+					array(
+						'name'          => 'grades',
+						'type'          => 'hidden',
+						'default_value' => $this->get_form_setting( array(), 'grades' ),
+					),
+					array(
+						'name'          => 'passPercent',
+						'label'         => esc_html__( 'Pass Percentage', 'gravityformsquiz' ),
+						'type'          => 'text',
+						'tooltip'       => '<h6>' . esc_html__( 'Pass Percentage', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Define the minimum percentage required to pass the quiz.', 'gravityformsquiz' ),
+						'class'         => 'gquiz-grade-value',
+						'default_value' => $this->get_form_setting( array(), 'passPercent' ),
+						'append'          => '%',
+						'after_input'   => $this->is_gravityforms_supported( '2.5-dev-1' ) ? '' : '%',
+					),
+					array(
+						'name'          => 'passfailDisplayConfirmation',
+						'type'          => 'checkbox',
+						'choices'       => array(
+							array(
+								'name'    => 'passfaildisplayconfirmation',
+								'label'   => esc_html__( 'Display quiz confirmation', 'gravityformsquiz' ),
+								'tooltip' => '<h6>' . esc_html__( 'Display Confirmation', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Activate this setting to configure a confirmation message to be displayed after submitting the quiz. The message will appear below the confirmation configured on the Confirmations tab. When this setting is activated any page redirects configured on the Confirmations tab will be ignored.', 'gravityformsquiz' ),
+								'default_value' => $this->get_form_setting( array(), 'passfailDisplayConfirmation' ),
+							),
+						),
+					),
+					array(
+						'name'          => 'passConfirmationMessage',
+						'type'          => 'textarea',
+						'label'         => esc_html__( 'Quiz Confirmation', 'gravityformsquiz' ),
+						'use_editor'    => true,
+						'dependency'    => array(
+							'live'   => true,
+							'fields' => array(
+								array(
+									'field'  => 'passfailDisplayConfirmation',
+									'values' => array( 'passfaildisplayconfirmation' ),
+								),
+							),
+						),
+						'class'         => 'gquiz-quiz-confirmation merge-tag-support mt-position-right fieldwidth-3 fieldheight-1',
+						'default_value' => $this->get_form_setting( array(), 'passConfirmationMessage' ),
+					),
+					array(
+						'name'       => 'passConfirmationDisableAutoformat',
+						'type'       => 'checkbox',
+						'dependency' => array(
+							'live'   => true,
+							'fields' => array(
+								array(
+									'field'  => 'passfailDisplayConfirmation',
+									'values' => array( 'passfaildisplayconfirmation' ),
+								),
+							),
+						),
+						'choices'    => array(
 							0 => array(
-								'name'          => 'passfailDisplayConfirmation',
-								'label'         => esc_html__( 'Display quiz confirmation', 'gravityformsquiz' ),
-								'tooltip'       => '<h6>' . esc_html__( 'Display Confirmation', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Activate this setting to configure a confirmation message to be displayed after submitting the quiz. The message will appear below the confirmation configured on the Confirmations tab. When this setting is activated any page redirects configured on the Confirmations tab will be ignored.', 'gravityformsquiz' ),
-								'default_value' => $this->get_form_setting( array(), 'passfailDisplayConfirmation' )
-							)
-						)
-					)
-				);
-				?>
-				<br />
-
-				<div class="gquiz-quiz-confirmation">
-					<div id="gquiz-form-setting-pass-confirmation-message">
-						<label style="display:block;">
-							<?php esc_html_e( 'Quiz Pass Confirmation', 'gravityformsquiz' ) ?>
-						</label>
-						<?php
-
-						$this->settings_textarea(
-							array(
-								'name'          => 'passConfirmationMessage',
-								'class'         => 'merge-tag-support mt-position-right fieldwidth-3 fieldheight-1',
-								'default_value' => $this->get_form_setting( array(), 'passConfirmationMessage' )
-							)
-						);
-
-						$this->settings_checkbox(
-							array(
-								'name'    => 'passConfirmationDisableAutoformat',
-								'type'    => 'checkbox',
-								'choices' => array(
-									0 => array(
-										'name'          => 'passConfirmationDisableAutoformat',
-										'label'         => esc_html__( 'Disable Auto-formatting', 'gravityformsquiz' ),
-										'tooltip'       => $tooltip_form_confirmation_autoformat,
-										'default_value' => $this->get_form_setting( array(), 'passConfirmationDisableAutoformat' )
-									)
-								)
-							)
-						);
-
-						?>
-					</div>
-					<br />
-
-					<div id="gquiz-form-setting-fail-confirmation-message">
-						<label style="display:block;">
-							<?php esc_html_e( 'Quiz Fail Confirmation', 'gravityformsquiz' ) ?>
-						</label>
-						<?php
-
-						$this->settings_textarea(
-							array(
-								'name'          => 'failConfirmationMessage',
-								'class'         => 'merge-tag-support mt-position-right fieldwidth-3 fieldheight-1',
-								'default_value' => $this->get_form_setting( array(), 'failConfirmationMessage' )
-							)
-						);
-
-
-						$this->settings_checkbox(
-							array(
-								'name'    => 'failConfirmationDisableAutoformat',
-								'type'    => 'checkbox',
-								'choices' => array(
-									0 => array(
-										'name'          => 'failConfirmationDisableAutoformat',
-										'label'         => esc_html__( 'Disable Auto-formatting', 'gravityformsquiz' ),
-										'tooltip'       => $tooltip_form_confirmation_autoformat,
-										'default_value' => $this->get_form_setting( array(), 'failConfirmationDisableAutoformat' )
-									)
-								)
-							)
-						);
-						?>
-					</div>
-				</div>
-			</div>
-
-			<div id="gquiz-grading-letter-container" style="margin-top:10px;display:none;">
-				<label for="gquiz-settings-grades-container" style="display:block;">
-					<?php esc_html_e( 'Letter Grades', 'gravityformsquiz' ); ?>
-					<?php gform_tooltip( 'gquiz_letter_grades' ) ?>
-				</label>
-
-				<div id="gquiz-settings-grades-container">
-					<label class="gquiz-grades-header-label"><?php esc_html_e( 'Label', 'gravityformsquiz' ) ?></label><label
-						class="gquiz-grades-header-value"><?php esc_html_e( 'Percentage', 'gravityformsquiz' ) ?></label>
-					<ul id="gquiz-grades">
-						<!-- placeholder for grades UI -->
-					</ul>
-				</div>
-				<br />
-
-				<?php
-
-				$this->settings_checkbox(
+								'name'          => 'passConfirmationDisableAutoformat',
+								'label'         => esc_html__( 'Disable Auto-formatting', 'gravityformsquiz' ),
+								'tooltip'       => $tooltip_form_confirmation_autoformat,
+								'default_value' => $this->get_form_setting( array(), 'passConfirmationDisableAutoformat' ),
+							),
+						),
+					),
+					array(
+						'name'          => 'failConfirmationMessage',
+						'type'          => 'textarea',
+						'label'         => esc_html__( 'Quiz Fail Confirmation', 'gravityformsquiz' ),
+						'use_editor'    => true,
+						'dependency'    => array(
+							'live'   => true,
+							'fields' => array(
+								array(
+									'field'  => 'passfailDisplayConfirmation',
+									'values' => array( 'passfaildisplayconfirmation' ),
+								),
+							),
+						),
+						'class'         => 'gquiz-quiz-confirmation merge-tag-support mt-position-right fieldwidth-3 fieldheight-1',
+						'default_value' => $this->get_form_setting( array(), 'failConfirmationMessage' ),
+					),
+					array(
+						'name'       => 'failConfirmationDisableAutoformat',
+						'type'       => 'checkbox',
+						'dependency' => array(
+							'live'   => true,
+							'fields' => array(
+								array(
+									'field'  => 'passfailDisplayConfirmation',
+									'values' => array( 'passfaildisplayconfirmation' ),
+								),
+							),
+						),
+						'choices'    => array(
+							0 => array(
+								'name'          => 'failConfirmationDisableAutoformat',
+								'label'         => esc_html__( 'Disable Auto-formatting', 'gravityformsquiz' ),
+								'tooltip'       => $tooltip_form_confirmation_autoformat,
+								'default_value' => $this->get_form_setting( array(), 'failConfirmationDisableAutoformat' ),
+							),
+						),
+					),
+				),
+			),
+			array(
+				'title'      => esc_html__( 'Letter Grading Options', 'gravityformsquiz' ),
+				'id'         => 'letter_options_section',
+				'dependency' => array(
+					'live'   => true,
+					'fields' => array(
+						array(
+							'field'  => 'grading',
+							'values' => array( 'letter' ),
+						),
+					),
+				),
+				'fields'     => array(
+					array(
+						'name'    => 'letter_grades',
+						'label'   => esc_html__( 'Letter Grades', 'gravityformsquiz' ),
+						'tooltip' => '<h6>' . esc_html__( 'Letter Grades', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Define the minimum percentage required for each grade.', 'gravityformsquiz' ),
+						'type'    => 'letter_grades',
+					),
 					array(
 						'name'    => 'letterDisplayConfirmation',
 						'type'    => 'checkbox',
 						'choices' => array(
-							0 => array(
+							array(
 								'name'          => 'letterDisplayConfirmation',
 								'label'         => esc_html__( 'Display quiz confirmation', 'gravityformsquiz' ),
 								'tooltip'       => '<h6>' . esc_html__( 'Display Confirmation', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Activate this setting to configure a confirmation message to be displayed after submitting the quiz. The message will appear below the confirmation configured on the Confirmations tab. When this setting is activated any page redirects configured on the Confirmations tab will be ignored.', 'gravityformsquiz' ),
-								'default_value' => $this->get_form_setting( array(), 'letterDisplayConfirmation' )
-							)
-						)
-					)
-				);
-				?>
-				<br />
+								'default_value' => $this->get_form_setting( array(), 'letterDisplayConfirmation' ),
+							),
+						),
+					),
+					array(
+						'name'          => 'letterConfirmationMessage',
+						'type'          => 'textarea',
+						'use_editor'    => true,
+						'label'         => esc_html__( 'Quiz Confirmation', 'gravityformsquiz' ),
+						'dependency'    => array(
+							'live'   => true,
+							'fields' => array(
+								array(
+									'field'  => 'letterDisplayConfirmation',
+									'values' => array( 'letterDisplayConfirmation' ),
+								),
+							),
+						),
+						'class'         => 'merge-tag-support mt-position-right fieldwidth-3 fieldheight-1',
+						'default_value' => $this->get_form_setting( array(), 'letterConfirmationMessage' ),
+					),
+					array(
+						'name'       => 'letterConfirmationDisableAutoformat',
+						'type'       => 'checkbox',
+						'dependency' => array(
+							'live'   => true,
+							'fields' => array(
+								array(
+									'field'  => 'letterDisplayConfirmation',
+									'values' => array( 'letterDisplayConfirmation' ),
+								),
+							),
+						),
+						'choices'    => array(
+							0 => array(
+								'name'          => 'letterConfirmationDisableAutoformat',
+								'label'         => esc_html__( 'Disable Auto-formatting', 'gravityformsquiz' ),
+								'tooltip'       => $tooltip_form_confirmation_autoformat,
+								'default_value' => $this->get_form_setting( array(), 'letterConfirmationDisableAutoformat' ),
+							),
+						),
+					),
+				),
+			),
+		);
 
-				<div class="gquiz-quiz-confirmation">
-					<div id="gquiz-form-setting-letter-confirmation-message">
-						<label for="gquiz-settings-grades-container" style="display:block;">
-							<?php esc_html_e( 'Quiz Confirmation', 'gravityformsquiz' ); ?>
-						</label>
-						<?php
+		if ( $this->is_gravityforms_supported( '2.5-dev-1' ) ) {
+			return $sections;
+		}
 
-						$this->settings_textarea(
-							array(
-								'name'          => 'letterConfirmationMessage',
-								'class'         => 'merge-tag-support mt-position-right fieldwidth-3 fieldheight-1',
-								'default_value' => $this->get_form_setting( array(), 'letterConfirmationMessage' )
-							)
-						);
+		foreach ( $sections as &$section ) {
+			if ( rgars( $section, 'dependency/live' ) == true ) {
+				unset( $section['dependency'] );
+			}
 
+			foreach ( $section['fields'] as &$field ) {
+				if ( rgars( $field, 'dependency/live' ) == true ) {
+					unset( $field['dependency'] );
+				}
+			}
+		}
 
-						$this->settings_checkbox(
-							array(
-								'name'    => 'letterConfirmationDisableAutoformat',
-								'type'    => 'checkbox',
-								'choices' => array(
-									0 => array(
-										'name'          => 'letterConfirmationDisableAutoformat',
-										'label'         => esc_html__( 'Disable Auto-formatting', 'gravityformsquiz' ),
-										'tooltip'       => $tooltip_form_confirmation_autoformat,
-										'default_value' => $this->get_form_setting( array(), 'letterConfirmationDisableAutoformat' )
-									)
-								)
-							)
-						);
-						?>
+		$sections[] = array(
+			'id'     => 'save',
+			'fields' => array(),
+		);
 
-					</div>
-				</div>
-			</div>
-		</div>
-	<?php
+		return $sections;
 	}
 
+	/**
+	 * Renders letter grades settings field.
+     *
+     * @since 3.2
+     *
+	 * @param  array $field Field properties.
+	 * @param  bool  $echo  Display field contents. Defaults to true.
+     *
+     * @return string
+	 */
+	public function settings_letter_grades( $field, $echo = true ) {
+	    $html = '
+        <div id="gquiz-grading-letter-container">
+	        <div id="gquiz-settings-grades-container">
+                <label class="gquiz-grades-header-label">'.esc_html__( 'Label', 'gravityformsquiz' ) .'</label><label
+                        class="gquiz-grades-header-value">'.esc_html__( 'Percentage', 'gravityformsquiz' ).'</label>
+                <ul id="gquiz-grades">
+                    <!-- placeholder for grades UI -->
+                </ul>
+            </div>
+        </div>';
+
+		if ( $echo ) {
+			echo $html;
+		}
+
+		return $html;
+
+    }
 
 	// # FIELD SETTINGS -------------------------------------------------------------------------------------------------
 
@@ -2033,6 +2238,9 @@ class GFQuiz extends GFAddOn {
 		//form settings
 		$tooltips['gquiz_letter_grades'] = '<h6>' . esc_html__( 'Letter Grades', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Define the minimum percentage required for each grade.', 'gravityformsquiz' );
 
+		$quizAnswersText = $this->is_gravityforms_supported( self::LATEST_UI_VERSION )
+			? esc_html__( 'Enter the answers for the quiz question. You can mark each choice as correct by using the checkmark icon on the left.', 'gravityforms' )
+			: esc_html__( 'Enter the answers for the quiz question. You can mark each choice as correct by using the radio/checkbox fields on the right.', 'gravityformsquiz' );
 
 		//field settings
 		$tooltips['gquiz_question']                  = '<h6>' . esc_html__( 'Quiz Question', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Enter the question you would like to ask the user. The user can then answer the question by selecting from the available choices.', 'gravityformsquiz' );
@@ -2040,7 +2248,7 @@ class GFQuiz extends GFAddOn {
 		$tooltips['gquiz_randomize_quiz_choices']    = '<h6>' . esc_html__( 'Randomize Quiz Answers', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Check the box to randomize the order in which the answers are displayed to the user. This setting affects only the quiz front-end. It will not affect the order of the results.', 'gravityformsquiz' );
 		$tooltips['gquiz_enable_answer_explanation'] = '<h6>' . esc_html__( 'Enable Answer Explanation', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'When displaying quiz results on your form\'s confirmations or notifications via merge tags (i.e. {quiz:id=1} or {all_quiz_results}), this option enables you to provide an explanation of the answer. Activate this option to enter an explanation.', 'gravityformsquiz' );
 		$tooltips['gquiz_answer_explanation']        = '<h6>' . esc_html__( 'Quiz Answer Explanation', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Enter the explanation for the correct answer and/or incorrect answers. This text will appear below the results for this field.', 'gravityformsquiz' );
-		$tooltips['gquiz_field_choices']             = '<h6>' . esc_html__( 'Quiz Answers', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Enter the answers for the quiz question. You can mark each choice as correct by using the radio/checkbox fields on the right.', 'gravityformsquiz' );
+		$tooltips['gquiz_field_choices']             = '<h6>' . esc_html__( 'Quiz Answers', 'gravityformsquiz' ) . '</h6>' . $quizAnswersText;
 		$tooltips['gquiz_weighted_score']            = '<h6>' . esc_html__( 'Weighted Score', 'gravityformsquiz' ) . '</h6>' . esc_html__( 'Weighted scores allow complex scoring systems in which each choice is awarded a different score. Weighted scores are awarded regardless of whether the response is correct or incorrect so be sure to allocate higher scores to correct answers. If this setting is disabled then the response will be awarded a score of 1 if correct and 0 if incorrect.', 'gravityformsquiz' );
 
 		return $tooltips;
@@ -2124,11 +2332,10 @@ class GFQuiz extends GFAddOn {
 			?>
 			<li class="gquiz-setting-randomize-quiz-choices field_setting">
 
-				<input type="checkbox" id="gquiz-randomize-quiz-choices"
-				       onclick="var value = jQuery(this).is(':checked'); SetFieldProperty('gquizEnableRandomizeQuizChoices', value);"/>
+				<input type="checkbox" id="gquiz-randomize-quiz-choices" onclick="var value = jQuery(this).is(':checked'); SetFieldProperty('gquizEnableRandomizeQuizChoices', value);">
 				<label for="gquiz-randomize-quiz-choices" class="inline">
 					<?php esc_html_e( 'Randomize order of choices', 'gravityformsquiz' ); ?>
-					<?php gform_tooltip( 'gquiz_randomize_quiz_choices' ) ?>
+					<?php gform_tooltip( 'gquiz_randomize_quiz_choices' ); ?>
 				</label>
 
 			</li>
@@ -2479,7 +2686,6 @@ class GFQuiz extends GFAddOn {
 
 		return $this->_form_meta_by_id[ $form_id ];
 	}
-
 
 	// # CONTACTS INTEGRATION -------------------------------------------------------------------------------------------
 

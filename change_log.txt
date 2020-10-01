@@ -1,3 +1,21 @@
+### 3.5 | 2020-09-28
+- Fixed an issue with scripts and styles not loading.
+
+### 3.4 | 2020-09-28
+- Added support for Gravity Forms 2.5.
+- Fixed an issue where the field label tag is corrupt when using JetSloth Image Choices and the Randomize order of choices setting is enabled.
+
+
+### 3.3 | 2020-05-13
+- Added translations for Hebrew, Hindi, Japanese, and Turkish.
+- Added security enhancements. Credit: Dominik Schilling.
+- Updated the width of the weighted score input for the field choices setting in the form editor.
+- Updated Javascript files, stylesheets to use minified versions.
+- Fixed a PHP warning, notices, and fatal error which occur when Yoast SEO generates the sitemap and there are multiple forms with the Shuffle quiz fields setting enabled.
+- Fixed a PHP notice which can occur when a third-party add-on triggers the gform_entry_field_value filter without passing a field object.
+- Fixed PHP notices which could occur on the Results page.
+
+
 ### 3.2 | 2019-08-07
 - Added security enhancements.
 - Added alt text to instant feedback images for better accessibility.

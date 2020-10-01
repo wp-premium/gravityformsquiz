@@ -27,8 +27,20 @@ class GF_Field_Quiz extends GF_Field {
 	public function get_form_editor_button() {
 		return array(
 			'group' => 'advanced_fields',
-			'text'  => $this->get_form_editor_field_title()
+			'text'  => $this->get_form_editor_field_title(),
+			'icon'  => $this->get_form_editor_field_icon(),
 		);
+	}
+
+	/**
+	 * Set custom form editor field icon.
+	 *
+	 * @since 3.3
+	 *
+	 * @return string
+	 */
+	public function get_form_editor_field_icon() {
+		return gf_quiz()->get_base_url() . '/images/quiz-icon.svg';
 	}
 
 	/**
